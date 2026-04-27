@@ -28,7 +28,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 WORKDIR $HOME/app
 
 # Build-time toggles for dependency behavior in constrained networks.
-ARG TORCH_CPU_VERSION=2.11.0+cpu
+ARG TORCH_CPU_VERSION=2.4.0+cpu
 ARG INSTALL_SPACY_MODELS=0
 
 # Copy pyproject.toml and other necessary files for installation

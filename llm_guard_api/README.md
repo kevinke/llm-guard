@@ -27,4 +27,5 @@ The API will start on `http://localhost:8000` with `AUTH_TOKEN=demo-token`.
 
 - The demo compose file mounts `./models` into the container as `/models`, so the model download step is expected before first startup.
 - After the models are downloaded once, the demo no longer depends on runtime model downloads for the configured scanners.
+- The demo defaults to `INSTALL_SPACY_MODELS=0` so `docker compose -f docker-compose.demo.cpu.yml up --build` does not try to fetch spaCy models during image build. Set `INSTALL_SPACY_MODELS=1` only if you explicitly want build-time spaCy downloads.
 - The default API config is still `config/scanners.yml`. The CPU demo uses the separate `config/scanners.demo.cpu.yml` file on purpose.

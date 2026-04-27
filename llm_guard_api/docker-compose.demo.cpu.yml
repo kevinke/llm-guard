@@ -9,7 +9,7 @@ services:
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-}
         TORCH_CPU_VERSION: ${TORCH_CPU_VERSION:-2.4.0+cpu}
-        INSTALL_SPACY_MODELS: ${INSTALL_SPACY_MODELS:-1}
+        INSTALL_SPACY_MODELS: ${INSTALL_SPACY_MODELS:-0}
     image: llm-guard-api:demo-cpu
     ports:
       - "8000:8000"

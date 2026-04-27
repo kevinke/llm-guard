@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +16,7 @@ from llm_guard.input_scanners.anonymize_helpers import (
     DEBERTA_LAKSHYAKH93_CONF,
     DEBERTA_AI4PRIVACY_v2_CONF,
     DISTILBERT_AI4PRIVACY_v2_CONF,
+    analyzer as anonymize_analyzer,
     get_regex_patterns,
 )
 from llm_guard.vault import Vault
@@ -316,6 +318,56 @@ def test_scan_unknown():
         Anonymize(Vault(), language="unknown")
     except LLMGuardValidationError as e:
         assert str(e) == f"Language must be in the list of allowed: {ALL_SUPPORTED_LANGUAGES}"
+
+
+class _DummyNlpEngineProvider:
+    def __init__(self, nlp_configuration):
+        self._nlp_configuration = nlp_configuration
+
+    def create_engine(self):
+        return self._nlp_configuration
+
+
+class _DummyBlankModel:
+    def to_disk(self, path):
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+
+def test_get_nlp_engine_uses_blank_fallback_when_skip_download_enabled(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("LLM_GUARD_SKIP_SPACY_DOWNLOAD", "1")
+    monkeypatch.setattr(anonymize_analyzer.spacy.util, "is_package", lambda _: False)
+    monkeypatch.setattr(anonymize_analyzer.spacy, "blank", lambda _: _DummyBlankModel())
+    monkeypatch.setattr(anonymize_analyzer, "NlpEngineProvider", _DummyNlpEngineProvider)
+
+    engine = anonymize_analyzer._get_nlp_engine(["en"])
+
+    fallback_path = tmp_path / ".cache" / "llm_guard" / "spacy" / "en_blank"
+    assert engine["models"] == [{"lang_code": "en", "model_name": str(fallback_path)}]
+    assert fallback_path.exists()
+
+
+def test_get_nlp_engine_uses_blank_fallback_when_download_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("LLM_GUARD_SKIP_SPACY_DOWNLOAD", raising=False)
+    monkeypatch.setattr(anonymize_analyzer.spacy.util, "is_package", lambda _: False)
+    monkeypatch.setattr(anonymize_analyzer.spacy, "blank", lambda _: _DummyBlankModel())
+    monkeypatch.setattr(anonymize_analyzer, "NlpEngineProvider", _DummyNlpEngineProvider)
+
+    attempted_downloads = []
+
+    def _raise_download(model_name):
+        attempted_downloads.append(model_name)
+        raise RuntimeError("network unavailable")
+
+    monkeypatch.setattr(anonymize_analyzer, "download", _raise_download)
+
+    engine = anonymize_analyzer._get_nlp_engine(["en"])
+
+    fallback_path = tmp_path / ".cache" / "llm_guard" / "spacy" / "en_blank"
+    assert attempted_downloads == ["en_core_web_sm"]
+    assert engine["models"] == [{"lang_code": "en", "model_name": str(fallback_path)}]
+    assert fallback_path.exists()
 
 
 def test_patterns():
