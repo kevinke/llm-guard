@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Guard — 完整调用链可视化</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #09090b;
+    --muted: #f4f4f5;
+    --muted-fg: #71717a;
+    --border: #e4e4e7;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; }
+
+  header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 1.5rem; font-weight: 700; color: var(--fg); }
+  header .badge { background: #18181b; color: #fafafa; font-size: 0.7rem; padding: 2px 10px; border-radius: 999px; font-weight: 600; letter-spacing: 0.05em; }
+
+  .tabs { display: flex; gap: 4px; padding: 20px 32px 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .tab { padding: 10px 24px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: var(--muted-fg); border: 1px solid transparent; border-bottom: none; transition: all 0.2s; }
+  .tab.active { background: var(--muted); color: var(--fg); border-color: var(--border); }
+  .tab:hover:not(.active) { color: var(--fg); background: var(--muted); }
+
+  .page { display: none; padding: 32px; background: var(--bg); }
+  .page.active { display: block; }
+
+  /* ── FLOW PAGE ── */
+  .flow-container { display: flex; flex-direction: column; gap: 0; align-items: center; }
+
+  .flow-section { width: 100%; max-width: 1100px; }
+  .section-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 12px; padding-left: 4px; }
+
+  /* Actor boxes */
+  .actor-row { display: flex; justify-content: space-around; align-items: stretch; gap: 12px; margin-bottom: 0; }
+  .actor { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .actor .icon { font-size: 2rem; margin-bottom: 8px; }
+  .actor .name { font-size: 0.85rem; font-weight: 700; color: var(--fg); }
+  .actor .desc { font-size: 0.72rem; color: var(--muted-fg); margin-top: 4px; line-height: 1.4; }
+
+  /* Arrow */
+  .arrow-down { display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 0; }
+  .arrow-down .line { width: 2px; height: 28px; background: linear-gradient(to bottom, #3b82f6, #6366f1); }
+  .arrow-down .tip { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #6366f1; }
+  .arrow-down .label { font-size: 0.7rem; color: var(--muted-fg); margin-top: 4px; }
+
+  .arrow-right { display: flex; align-items: center; gap: 0; flex-shrink: 0; width: 36px; justify-content: center; }
+  .arrow-right .line { height: 2px; width: 20px; background: var(--border); }
+  .arrow-right .tip { width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid var(--border); }
+
+  /* Scanner chain */
+  .scanner-chain { background: var(--muted); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+  .chain-title { font-size: 0.78rem; font-weight: 700; color: #2563eb; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .chain-title .dot { width: 8px; height: 8px; border-radius: 50%; background: #2563eb; }
+
+  .scanner-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .scanner-node { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+  .scanner-box { padding: 8px 12px; border-radius: 8px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; border: 1px solid; transition: all 0.2s; }
+  .scanner-box:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .scanner-box.pii    { background: #ede9fe; border-color: #8b5cf6; color: #6d28d9; }
+  .scanner-box.inject { background: #fff7ed; border-color: #f97316; color: #c2410c; }
+  .scanner-box.content{ background: #f0fdf4; border-color: #22c55e; color: #15803d; }
+  .scanner-box.format { background: #fefce8; border-color: #eab308; color: #a16207; }
+  .scanner-box.custom { background: #faf5ff; border-color: #a78bfa; color: #7c3aed; border-style: dashed; }
+  .scanner-type { font-size: 0.62rem; color: var(--muted-fg); }
+
+  .mode-badge { font-size: 0.6rem; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-top: 2px; }
+  .mode-serial { background: #dbeafe; color: #1d4ed8; }
+  .mode-parallel { background: #dcfce7; color: #15803d; }
+
+  /* Result box */
+  .result-box { background: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .result-item { flex: 1; min-width: 180px; }
+  .result-item .key { font-size: 0.7rem; color: var(--muted-fg); font-family: monospace; margin-bottom: 4px; }
+  .result-item .val { font-size: 0.82rem; color: var(--fg); font-family: monospace; }
+  .result-item .val .ok { color: #16a34a; }
+  .result-item .val .bad { color: #dc2626; }
+  .result-item .val .score { color: #d97706; }
+
+  /* Vault bridge */
+  .vault-bridge { display: flex; align-items: center; gap: 0; width: 100%; max-width: 1100px; margin: 0; padding: 8px 0; }
+  .vault-line { flex: 1; height: 2px; background: repeating-linear-gradient(to right, #8b5cf6 0, #8b5cf6 8px, transparent 8px, transparent 14px); }
+  .vault-box { background: #faf5ff; border: 1px dashed #8b5cf6; border-radius: 10px; padding: 10px 20px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .vault-box .icon { font-size: 1.2rem; }
+  .vault-box .text .name { font-size: 0.78rem; font-weight: 700; color: #7c3aed; }
+  .vault-box .text .sub  { font-size: 0.65rem; color: #a78bfa; }
+
+  .llm-box { width: 100%; max-width: 1100px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 12px; padding: 18px 24px; display: flex; align-items: center; gap: 16px; }
+  .llm-box .icon { font-size: 2.2rem; }
+  .llm-box .info .name { font-size: 0.95rem; font-weight: 700; color: #1d4ed8; }
+  .llm-box .info .sub  { font-size: 0.72rem; color: #3b82f6; margin-top: 2px; }
+
+  /* ── API PAGE ── */
+  .api-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1100px; }
+  .api-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .api-card-header { padding: 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); background: var(--muted); }
+  .method { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: #dcfce7; color: #15803d; }
+  .endpoint { font-family: monospace; font-size: 0.88rem; color: var(--fg); }
+  .api-card-body { padding: 16px 20px; }
+  .api-desc { font-size: 0.78rem; color: var(--muted-fg); margin-bottom: 12px; }
+  .diff-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start; }
+  .diff-label { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+  .diff-serial { background: #dbeafe; color: #1d4ed8; }
+  .diff-parallel { background: #dcfce7; color: #15803d; }
+  .diff-text { font-size: 0.75rem; color: var(--muted-fg); line-height: 1.5; }
+  .json-block { background: var(--muted); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.72rem; line-height: 1.7; border: 1px solid var(--border); margin-top: 10px; }
+  .jk { color: #0369a1; } .jv { color: #16a34a; } .jn { color: #9a3412; } .jb { color: #be185d; } .jc { color: #a1a1aa; }
+
+  /* ── SCANNER PAGE ── */
+  .scanner-catalog { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1100px; }
+  .catalog-section { background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .catalog-header { padding: 14px 20px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .catalog-header.input  { background: #eff6ff; color: #1d4ed8; }
+  .catalog-header.output { background: #f0fdf4; color: #15803d; }
+  .scanner-list { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .scanner-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--muted); border: 1px solid var(--border); transition: border-color 0.2s, box-shadow 0.2s; cursor: default; }
+  .scanner-item:hover { border-color: #a1a1aa; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .scanner-item .cat-tag { font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+  .scanner-item .si-name { font-size: 0.8rem; font-weight: 600; color: var(--fg); }
+  .scanner-item .si-desc { font-size: 0.7rem; color: var(--muted-fg); margin-top: 2px; line-height: 1.4; }
+
+  /* Custom scanner */
+  .custom-section { max-width: 1100px; margin-top: 24px; background: #faf5ff; border: 1px dashed #c4b5fd; border-radius: 12px; padding: 24px 28px; }
+  .custom-section h3 { color: #7c3aed; font-size: 0.9rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .code-block { background: var(--muted); border-radius: 8px; padding: 16px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.8; overflow-x: auto; border: 1px solid var(--border); }
+  .kw { color: #9333ea; } .cl { color: #2563eb; } .fn { color: #2563eb; } .st { color: #16a34a; } .cm { color: #a1a1aa; font-style: italic; } .nu { color: #ea580c; }
+
+  /* tooltip */
+  .tooltip-wrap { position: relative; }
+  .tooltip-wrap .tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; width: 220px; font-size: 0.72rem; line-height: 1.6; color: #fafafa; z-index: 100; pointer-events: none; }
+  .tooltip-wrap:hover .tooltip { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:1.8rem">🛡️</div>
+  <div>
+    <h1>LLM Guard — 调用链可视化</h1>
+    <div style="font-size:0.75rem;color:#71717a;margin-top:2px;">基于 protectai/llm-guard 源码分析</div>
+  </div>
+  <div class="badge">源码级解析</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('flow')">🔄 完整调用链</div>
+  <div class="tab" onclick="switchTab('api')">🌐 API 详解</div>
+  <div class="tab" onclick="switchTab('scanners')">🔍 扫描器目录 & 自定义</div>
+</div>
+
+<!-- ══════════ TAB: FLOW ══════════ -->
+<div class="page active" id="tab-flow">
+<div class="flow-container">
+
+  <div class="flow-section">
+    <div class="section-label">① 用户侧</div>
+    <div class="actor-row">
+      <div class="actor">
+        <div class="icon">👤</div>
+        <div class="name">用户 / 客户端</div>
+        <div class="desc">发送原始 Prompt<br/>包含 PII、意图等敏感信息</div>
+      </div>
+      <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+      <div class="actor" style="border-color:#93c5fd;background:#eff6ff;">
+        <div class="icon">🌐</div>
+        <div class="name">POST /analyze/prompt</div>
+        <div class="desc">{ "prompt": "...", "scanners_suppress": [] }</div>
+      </div>
+      <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+      <div class="actor" style="border-color:#93c5fd;background:#eff6ff;">
+        <div class="icon">⚙️</div>
+        <div class="name">FastAPI 路由</div>
+        <div class="desc">鉴权 → Depends 注入<br/>已加载的 Scanner 列表</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="tip"></div><div class="label">注入全局缓存的 Input Scanners</div></div>
+
+  <div class="flow-section">
+    <div class="section-label">② Input Scanner 链（串行 · evaluate.py: scan_prompt）</div>
+    <div class="scanner-chain">
+      <div class="chain-title"><div class="dot"></div> input_scanners（按 scanners.yml 顺序依次执行，上一个输出 → 下一个输入）</div>
+      <div class="scanner-flow">
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box pii">🔒 Anonymize</div>
+          <div class="scanner-type">PII 脱敏</div>
+          <div class="tooltip"><b>Anonymize</b><br/>检测并替换 PII：姓名/邮箱/手机/IP/信用卡等。替换结果存入 <b>Vault</b>，Output 阶段可还原。使用 DeBERTa 模型 + Presidio。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box inject">🧨 PromptInjection</div>
+          <div class="scanner-type">注入攻击检测</div>
+          <div class="tooltip"><b>PromptInjection</b><br/>检测"忽略之前指令"等提示词注入攻击，使用 DeBERTa v3 模型，返回风险分 0~1。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box content">☣️ Toxicity</div>
+          <div class="scanner-type">毒性内容</div>
+          <div class="tooltip"><b>Toxicity</b><br/>检测仇恨/辱骂/有害言论，阈值可配置（默认 0.9）。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box content">🚫 BanTopics</div>
+          <div class="scanner-type">话题黑名单</div>
+          <div class="tooltip"><b>BanTopics</b><br/>语义检测是否涉及禁止话题（如暴力、政治），使用零样本分类模型。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box format">🔑 Secrets</div>
+          <div class="scanner-type">密钥泄露</div>
+          <div class="tooltip"><b>Secrets</b><br/>检测 100+ 种 API Key / Token / 密码格式，支持自动 redact。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box format">📏 TokenLimit</div>
+          <div class="scanner-type">Token 限制</div>
+          <div class="tooltip"><b>TokenLimit</b><br/>限制 Prompt Token 数量，防止超长攻击或成本失控（默认 4096）。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box format">📝 Regex</div>
+          <div class="scanner-type">自定义正则</div>
+          <div class="tooltip"><b>Regex</b><br/>自定义正则规则，可配置 block / redact 模式，如检测 Bearer Token。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box custom">✨ 自定义 Scanner</div>
+          <div class="scanner-type">实现 scan() 即可</div>
+          <div class="tooltip"><b>自定义 Scanner</b><br/>实现 <code>scan(prompt) → (str, bool, float)</code> 接口，注册到 get_scanner_by_name()，在 scanners.yml 中按名字引用即可。</div>
+        </div>
+
+      </div>
+
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid #e4e4e7; display:flex; gap:24px; flex-wrap:wrap;">
+        <div><span class="mode-badge mode-serial">/analyze/prompt</span> <span style="font-size:0.7rem;color:#71717a;margin-left:6px;">串行执行，前一个净化输出传入下一个</span></div>
+        <div><span class="mode-badge mode-parallel">/scan/prompt</span> <span style="font-size:0.7rem;color:#71717a;margin-left:6px;">并行执行 asyncio.gather，仅判断是否合规，不净化</span></div>
+        <div style="font-size:0.7rem;color:#71717a;">scan_fail_fast=true → 第一个不通过即终止链</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:1100px;">
+    <div style="display:flex;align-items:center;gap:0;width:100%">
+      <div style="flex:1;height:1px;background:#e4e4e7"></div>
+      <div class="arrow-down" style="padding:6px 0"><div class="line"></div><div class="tip"></div></div>
+      <div style="flex:1;height:1px;background:#e4e4e7"></div>
+    </div>
+    <div style="font-size:0.7rem;color:#71717a;margin-bottom:4px;">sanitized_prompt（净化后 Prompt）+ is_valid 判断</div>
+  </div>
+
+  <!-- Vault bridge -->
+  <div class="vault-bridge">
+    <div class="vault-line"></div>
+    <div class="vault-box">
+      <div class="icon">🔐</div>
+      <div class="text">
+        <div class="name">Vault（进程内共享）</div>
+        <div class="sub">PII 映射表：{ PERSON_1: "张三", EMAIL_1: "..." }<br/>Anonymize → 存入 ｜ Deanonymize → 读取还原</div>
+      </div>
+    </div>
+    <div class="vault-line"></div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="tip"></div><div class="label">如果 is_valid=true，客户端用净化 prompt 调用 LLM</div></div>
+
+  <!-- LLM -->
+  <div class="llm-box">
+    <div class="icon">🤖</div>
+    <div class="info">
+      <div class="name">大语言模型 (LLM)</div>
+      <div class="sub">GPT-4 / Claude / Gemini / 本地模型 … 接收净化后的 Prompt，返回 Output</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="tip"></div><div class="label">LLM 原始输出 → POST /analyze/output</div></div>
+
+  <!-- Output scanners -->
+  <div class="flow-section">
+    <div class="section-label">③ Output Scanner 链（串行 · evaluate.py: scan_output）</div>
+    <div class="scanner-chain" style="border-color:#bbf7d0">
+      <div class="chain-title" style="color:#16a34a"><div class="dot" style="background:#16a34a"></div> output_scanners（同样可配置、可自定义）</div>
+      <div class="scanner-flow">
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box pii">🔓 Deanonymize</div>
+          <div class="scanner-type">PII 还原</div>
+          <div class="tooltip"><b>Deanonymize</b><br/>从 Vault 读取映射，将 Output 中的占位符（PERSON_1 等）还原回真实 PII，再返回给用户。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box content">🎯 Relevance</div>
+          <div class="scanner-type">相关性检测</div>
+          <div class="tooltip"><b>Relevance</b><br/>检测 Output 是否与原始 Prompt 相关（向量余弦相似度），防止 LLM 跑题或被诱导。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box content">🧠 FactualConsistency</div>
+          <div class="scanner-type">事实一致性</div>
+          <div class="tooltip"><b>FactualConsistency</b><br/>检测 Output 是否与 Prompt 中的事实一致，使用 NLI（自然语言推断）模型。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box content">🚫 NoRefusal</div>
+          <div class="scanner-type">拒绝检测</div>
+          <div class="tooltip"><b>NoRefusal</b><br/>检测 LLM 是否拒绝回答（"我无法帮助..."），可用于保证服务质量。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box inject">🔗 MaliciousURLs</div>
+          <div class="scanner-type">恶意 URL</div>
+          <div class="tooltip"><b>MaliciousURLs</b><br/>检测 Output 中是否含有恶意网址，使用专用分类模型。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box format">⚖️ Bias</div>
+          <div class="scanner-type">偏见检测</div>
+          <div class="tooltip"><b>Bias</b><br/>检测 Output 是否含有性别/种族等偏见内容，阈值可配置（默认 0.97）。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box pii">🔏 Sensitive</div>
+          <div class="scanner-type">敏感信息</div>
+          <div class="tooltip"><b>Sensitive</b><br/>检测 Output 是否泄露了敏感 PII，可选 redact 模式（不还原直接脱敏）。</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="tip"></div></div>
+
+        <div class="scanner-node tooltip-wrap">
+          <div class="scanner-box custom">✨ 自定义 Scanner</div>
+          <div class="scanner-type">实现 scan(prompt, output)</div>
+          <div class="tooltip"><b>自定义 Output Scanner</b><br/>实现 <code>scan(prompt, output) → (str, bool, float)</code>，注册后在 scanners.yml output_scanners 中引用即可。</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="tip"></div></div>
+
+  <!-- Final result -->
+  <div class="flow-section">
+    <div class="section-label">④ 返回给客户端</div>
+    <div class="result-box">
+      <div class="result-item">
+        <div class="key">sanitized_output</div>
+        <div class="val">"张三的邮箱是 test@test.com…"<br/><span style="font-size:0.65rem;color:#71717a">↑ PII 已从占位符还原回真实值</span></div>
+      </div>
+      <div class="result-item">
+        <div class="key">is_valid</div>
+        <div class="val"><span class="ok">true</span> / <span class="bad">false</span></div>
+      </div>
+      <div class="result-item">
+        <div class="key">scanners（风险分数）</div>
+        <div class="val">
+          <span class="score">{ "Relevance": 0.05,<br/>&nbsp;&nbsp;"Bias": 0.02,<br/>&nbsp;&nbsp;"MaliciousURLs": 0.0 }</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════ TAB: API ══════════ -->
+<div class="page" id="tab-api">
+<div class="api-grid">
+
+  <div class="api-card">
+    <div class="api-card-header">
+      <span class="method">POST</span>
+      <span class="endpoint">/analyze/prompt</span>
+    </div>
+    <div class="api-card-body">
+      <div class="api-desc">串行扫描 Prompt，返回净化后内容 + 风险分数。用于需要脱敏/过滤后再发给 LLM 的场景。</div>
+      <div class="diff-row"><span class="diff-label diff-serial">串行</span><span class="diff-text">Scanner 链顺序执行，前一个净化结果传入下一个；支持 fail_fast 提前中断</span></div>
+      <div class="json-block">
+        <span class="jc">// Request</span><br/>
+        {<br/>
+        &nbsp;&nbsp;<span class="jk">"prompt"</span>: <span class="jv">"My name is John Doe..."</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"scanners_suppress"</span>: [<span class="jv">"Language"</span>]<br/>
+        }<br/><br/>
+        <span class="jc">// Response</span><br/>
+        {<br/>
+        &nbsp;&nbsp;<span class="jk">"sanitized_prompt"</span>: <span class="jv">"My name is PERSON_1..."</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"is_valid"</span>: <span class="jb">true</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"scanners"</span>: { <span class="jk">"Anonymize"</span>: <span class="jn">0.0</span>, <span class="jk">"PromptInjection"</span>: <span class="jn">0.02</span> }<br/>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-card-header">
+      <span class="method">POST</span>
+      <span class="endpoint">/scan/prompt</span>
+    </div>
+    <div class="api-card-body">
+      <div class="api-desc">并行扫描 Prompt，只返回是否合规 + 风险分数，不返回净化内容。速度更快，适合纯检测场景。</div>
+      <div class="diff-row"><span class="diff-label diff-parallel">并行</span><span class="diff-text">asyncio.gather 同时运行所有 Scanner，任一失败即标记 is_valid=false</span></div>
+      <div class="json-block">
+        <span class="jc">// Request（同 /analyze/prompt）</span><br/>
+        { <span class="jk">"prompt"</span>: <span class="jv">"Ignore all instructions..."</span> }<br/><br/>
+        <span class="jc">// Response（无 sanitized_prompt）</span><br/>
+        {<br/>
+        &nbsp;&nbsp;<span class="jk">"is_valid"</span>: <span class="jb">false</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"scanners"</span>: { <span class="jk">"PromptInjection"</span>: <span class="jn">0.97</span> }<br/>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-card-header">
+      <span class="method">POST</span>
+      <span class="endpoint">/analyze/output</span>
+    </div>
+    <div class="api-card-body">
+      <div class="api-desc">串行扫描 LLM 输出，返回净化后内容（含 PII 还原）+ 风险分数。</div>
+      <div class="diff-row"><span class="diff-label diff-serial">串行</span><span class="diff-text">需要同时传 prompt + output，Deanonymize 依赖 prompt 上下文还原 PII</span></div>
+      <div class="json-block">
+        <span class="jc">// Request</span><br/>
+        {<br/>
+        &nbsp;&nbsp;<span class="jk">"prompt"</span>: <span class="jv">"My name is PERSON_1..."</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"output"</span>: <span class="jv">"Hello PERSON_1, your email..."</span><br/>
+        }<br/><br/>
+        <span class="jc">// Response</span><br/>
+        {<br/>
+        &nbsp;&nbsp;<span class="jk">"sanitized_output"</span>: <span class="jv">"Hello John Doe, your email..."</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"is_valid"</span>: <span class="jb">true</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"scanners"</span>: { <span class="jk">"Relevance"</span>: <span class="jn">0.05</span>, <span class="jk">"Bias"</span>: <span class="jn">0.01</span> }<br/>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-card-header">
+      <span class="method">POST</span>
+      <span class="endpoint">/scan/output</span>
+    </div>
+    <div class="api-card-body">
+      <div class="api-desc">并行扫描 LLM 输出，只做安全检测，不净化，不还原 PII。</div>
+      <div class="diff-row"><span class="diff-label diff-parallel">并行</span><span class="diff-text">asyncio.gather 并发所有 Output Scanner，速度快</span></div>
+      <div class="json-block">
+        { <span class="jk">"prompt"</span>: <span class="jv">"..."</span>, <span class="jk">"output"</span>: <span class="jv">"..."</span> }<br/><br/>
+        {<br/>
+        &nbsp;&nbsp;<span class="jk">"is_valid"</span>: <span class="jb">false</span>,<br/>
+        &nbsp;&nbsp;<span class="jk">"scanners"</span>: { <span class="jk">"MaliciousURLs"</span>: <span class="jn">0.95</span> }<br/>
+        }
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:1100px;margin-top:20px;background:#ffffff;border-radius:12px;padding:20px 24px;border:1px solid #e4e4e7;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+  <div style="font-size:0.8rem;font-weight:700;color:#09090b;margin-bottom:12px;">其他端点</div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:160px;background:#f4f4f5;border-radius:8px;padding:12px 16px;border:1px solid #e4e4e7;">
+      <div style="font-family:monospace;font-size:0.78rem;color:#2563eb">GET /healthz</div>
+      <div style="font-size:0.7rem;color:#71717a;margin-top:4px;">存活检测 → { "status": "alive" }</div>
+    </div>
+    <div style="flex:1;min-width:160px;background:#f4f4f5;border-radius:8px;padding:12px 16px;border:1px solid #e4e4e7;">
+      <div style="font-family:monospace;font-size:0.78rem;color:#2563eb">GET /readyz</div>
+      <div style="font-size:0.7rem;color:#71717a;margin-top:4px;">就绪检测 → { "status": "ready" }</div>
+    </div>
+    <div style="flex:1;min-width:160px;background:#f4f4f5;border-radius:8px;padding:12px 16px;border:1px solid #e4e4e7;">
+      <div style="font-family:monospace;font-size:0.78rem;color:#2563eb">GET /metrics</div>
+      <div style="font-size:0.7rem;color:#71717a;margin-top:4px;">Prometheus 格式指标（需配置开启）</div>
+    </div>
+    <div style="flex:1;min-width:160px;background:#f4f4f5;border-radius:8px;padding:12px 16px;border:1px solid #e4e4e7;">
+      <div style="font-family:monospace;font-size:0.78rem;color:#2563eb">GET /openapi.json</div>
+      <div style="font-size:0.7rem;color:#71717a;margin-top:4px;">仅 DEBUG 模式下暴露 Swagger 文档</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════ TAB: SCANNERS ══════════ -->
+<div class="page" id="tab-scanners">
+<div class="scanner-catalog">
+
+  <div class="catalog-section">
+    <div class="catalog-header input">📥 Input Scanners（Prompt 输入侧）</div>
+    <div class="scanner-list">
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#ede9fe;color:#6d28d9">PII</span>
+        <div><div class="si-name">Anonymize</div><div class="si-desc">检测并脱敏 PII（姓名/邮箱/手机/IP等），映射存入 Vault，Output 端可还原。基于 DeBERTa + Presidio。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fff7ed;color:#c2410c">注入</span>
+        <div><div class="si-name">PromptInjection</div><div class="si-desc">检测提示词注入攻击（"忽略之前所有指令"），DeBERTa v2 模型，threshold 可调。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">Toxicity</div><div class="si-desc">检测仇恨/暴力/辱骂等有害内容，默认阈值 0.9。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">BanTopics</div><div class="si-desc">零样本分类，禁止特定话题（violence/politics/adult…），topics 列表可自定义。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">BanSubstrings</div><div class="si-desc">精确字符串黑名单，支持 word/str 匹配、大小写敏感、redact 模式。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">BanCode</div><div class="si-desc">检测 Prompt 中是否包含代码片段，防止代码注入。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">BanCompetitors</div><div class="si-desc">语义检测是否提及竞争对手品牌，competitors 列表可配置。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">Secrets</div><div class="si-desc">检测 100+ 种密钥格式（GitHub Token/AWS Key/OpenAI Key…），支持自动 redact。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">Regex</div><div class="si-desc">自定义正则规则，支持 block / redact / search 模式，灵活度最高。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">TokenLimit</div><div class="si-desc">限制最大 Token 数，防止超长攻击和成本超支，encoding 可选。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">Language</div><div class="si-desc">限制允许的语言（valid_languages: ["en"]），拒绝非指定语言输入。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">Gibberish</div><div class="si-desc">检测乱码/无意义内容，防止垃圾 Prompt 消耗资源。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">Sentiment</div><div class="si-desc">情感分析，过滤极端负面 Prompt，threshold 可配置。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">EmotionDetection</div><div class="si-desc">检测情绪类别（愤怒/悲伤/恐惧…），blocked_emotions 可自定义。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">InvisibleText</div><div class="si-desc">检测不可见 Unicode 字符（零宽字符等隐写攻击）。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">Code</div><div class="si-desc">检测特定编程语言代码（languages 可配置），is_blocked 决定允许还是禁止。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="catalog-section">
+    <div class="catalog-header output">📤 Output Scanners（LLM 输出侧）</div>
+    <div class="scanner-list">
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#ede9fe;color:#6d28d9">PII</span>
+        <div><div class="si-name">Deanonymize</div><div class="si-desc">从 Vault 读取映射，将 Output 中占位符还原为真实 PII，与 Anonymize 配对使用。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#ede9fe;color:#6d28d9">PII</span>
+        <div><div class="si-name">Sensitive</div><div class="si-desc">检测 Output 是否泄露敏感 PII（不经 Vault），redact 模式可直接脱敏后返回。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">质量</span>
+        <div><div class="si-name">Relevance</div><div class="si-desc">向量余弦相似度检测 Output 与 Prompt 相关性，防止 LLM 跑题或被劫持。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">质量</span>
+        <div><div class="si-name">FactualConsistency</div><div class="si-desc">NLI 模型检测 Output 与 Prompt 事实一致性，minimum_score 可配置。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">质量</span>
+        <div><div class="si-name">NoRefusal</div><div class="si-desc">检测 LLM 是否拒绝回答，保证服务可用性，threshold 可调。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">Bias</div><div class="si-desc">检测性别/种族/政治偏见，默认阈值 0.97，严格模式。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">Toxicity</div><div class="si-desc">检测 Output 中有害内容，与 Input 侧同款模型。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#f0fdf4;color:#15803d">内容</span>
+        <div><div class="si-name">BanTopics / BanSubstrings / BanCode / BanCompetitors</div><div class="si-desc">输出侧同款禁止规则，防止 LLM 生成被禁内容。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">安全</span>
+        <div><div class="si-name">MaliciousURLs</div><div class="si-desc">检测 Output 中恶意 URL，使用专用分类模型，threshold 可调。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">安全</span>
+        <div><div class="si-name">URLReachability</div><div class="si-desc">实际访问 Output 中的 URL，检测是否可达（防止死链/钓鱼）。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">JSON</div><div class="si-desc">检测 Output 是否为合法 JSON，repair 模式可尝试自动修复。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">Language / LanguageSame</div><div class="si-desc">Language: 限制输出语言；LanguageSame: 要求输出与输入语言一致。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">ReadingTime</div><div class="si-desc">限制阅读时间（max_time 秒），控制输出长度，truncate 模式可截断。</div></div>
+      </div>
+      <div class="scanner-item">
+        <span class="cat-tag" style="background:#fefce8;color:#a16207">格式</span>
+        <div><div class="si-name">Regex / Sentiment / Gibberish</div><div class="si-desc">输出侧同款：自定义正则 / 情感过滤 / 乱码检测。</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Custom scanner code -->
+<div class="custom-section">
+  <h3>🔧 自定义 Scanner — 只需实现一个方法</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div style="font-size:0.75rem;color:#7c3aed;margin-bottom:8px;font-weight:600;">① 自定义 Input Scanner</div>
+      <div class="code-block"><span class="cm"># 1. 实现 Protocol 接口</span>
+<span class="kw">class</span> <span class="cl">MyCustomInputScanner</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="cl">self</span>, threshold: <span class="cl">float</span> = <span class="nu">0.8</span>):
+        <span class="cl">self</span>.threshold = threshold
+
+    <span class="kw">def</span> <span class="fn">scan</span>(<span class="cl">self</span>, prompt: <span class="cl">str</span>
+    ) -> <span class="cl">tuple</span>[<span class="cl">str</span>, <span class="cl">bool</span>, <span class="cl">float</span>]:
+        <span class="cm"># 你的检测逻辑</span>
+        risk = <span class="cl">my_model</span>.predict(prompt)
+        is_valid = risk &lt; <span class="cl">self</span>.threshold
+        <span class="cm"># 返回: (净化后prompt, 是否安全, 风险分数)</span>
+        <span class="kw">return</span> prompt, is_valid, risk</div>
+    </div>
+    <div>
+      <div style="font-size:0.75rem;color:#7c3aed;margin-bottom:8px;font-weight:600;">② 自定义 Output Scanner</div>
+      <div class="code-block"><span class="cm"># Output Scanner 多一个 prompt 参数</span>
+<span class="kw">class</span> <span class="cl">MyCustomOutputScanner</span>:
+    <span class="kw">def</span> <span class="fn">scan</span>(<span class="cl">self</span>,
+        prompt: <span class="cl">str</span>,
+        output: <span class="cl">str</span>
+    ) -> <span class="cl">tuple</span>[<span class="cl">str</span>, <span class="cl">bool</span>, <span class="cl">float</span>]:
+        <span class="cm"># 可利用原始 prompt 做对比</span>
+        risk = <span class="cl">my_checker</span>.check(prompt, output)
+        is_valid = risk &lt; <span class="nu">0.5</span>
+        <span class="kw">return</span> output, is_valid, risk</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px;">
+    <div>
+      <div style="font-size:0.75rem;color:#7c3aed;margin-bottom:8px;font-weight:600;">③ 注册到 API（llm_guard/input_scanners/util.py）</div>
+      <div class="code-block"><span class="kw">def</span> <span class="fn">get_scanner_by_name</span>(name, config):
+    <span class="cm"># 在现有 if-elif 链中添加:</span>
+    <span class="kw">if</span> name == <span class="st">"MyCustomInputScanner"</span>:
+        <span class="kw">return</span> <span class="cl">MyCustomInputScanner</span>(**config)
+    <span class="cm"># ...</span></div>
+    </div>
+    <div>
+      <div style="font-size:0.75rem;color:#7c3aed;margin-bottom:8px;font-weight:600;">④ 在 scanners.yml 中引用</div>
+      <div class="code-block"><span class="cm"># scanners.yml</span>
+input_scanners:
+  - type: PromptInjection
+    params:
+      threshold: <span class="nu">0.92</span>
+  - type: MyCustomInputScanner  <span class="cm"># ← 直接用类名</span>
+    params:
+      threshold: <span class="nu">0.8</span>
+      <span class="cm"># 任意参数透传给 __init__</span></div>
+    </div>
+  </div>
+  <div style="margin-top:14px;padding:10px 14px;background:#f4f4f5;border-radius:8px;font-size:0.73rem;color:#71717a;line-height:1.7;border:1px solid #e4e4e7;">
+    💡 <b style="color:#7c3aed">关键点</b>：Scanner 是纯 Python Protocol（鸭子类型），不需要继承任何基类，只要实现正确签名的 <code>scan()</code> 方法即可。返回的三元组含义固定：<code>(处理后文本, True=安全/False=危险, 0~1风险分数)</code>。
+  </div>
+</div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const tabs = ['flow','api','scanners'];
+  document.querySelectorAll('.tab')[tabs.indexOf(name)].classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+</script>
+</body>
+</html>

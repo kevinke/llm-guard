@@ -1,0 +1,24 @@
+services:
+  llm_guard_api_demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+        TORCH_CPU_VERSION: ${TORCH_CPU_VERSION:-2.4.0+cpu}
+        INSTALL_SPACY_MODELS: ${INSTALL_SPACY_MODELS:-1}
+    image: llm-guard-api:demo-cpu
+    ports:
+      - "8000:8000"
+    environment:
+      LOG_LEVEL: INFO
+      AUTH_TOKEN: demo-token
+      APP_WORKERS: 1
+      LAZY_LOAD: "true"
+      SCAN_FAIL_FAST: "true"
+    volumes:
+      - ./config/scanners.demo.cpu.yml:/home/user/app/config/scanners.yml:ro
+      - ./models:/models:ro
