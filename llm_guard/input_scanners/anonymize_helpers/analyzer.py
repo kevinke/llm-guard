@@ -1,4 +1,7 @@
 import copy
+import logging
+import os
+from pathlib import Path
 
 import spacy
 from presidio_analyzer import (
@@ -17,6 +20,9 @@ from .predefined_recognizers import _get_predefined_recognizers
 from .predefined_recognizers.zh import CustomPatternRecognizer
 from .regex_patterns import RegexPattern
 from .transformers_recognizer import TransformersRecognizer
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _add_recognizers(
@@ -95,12 +101,47 @@ def _add_recognizers(
 
 def _get_nlp_engine(languages: list[str]) -> NlpEngine:
     models = []
+    skip_spacy_download = os.getenv("LLM_GUARD_SKIP_SPACY_DOWNLOAD", "0") == "1"
 
     for language in languages:
-        if not spacy.util.is_package(f"{language}_core_web_sm"):
-            # Use small spacy model, for faster inference.
-            download(f"{language}_core_web_sm")
-        models.append({"lang_code": language, "model_name": f"{language}_core_web_sm"})
+        model_name = f"{language}_core_web_sm"
+        if not spacy.util.is_package(model_name):
+            fallback_path = Path.home() / ".cache" / "llm_guard" / "spacy" / f"{language}_blank"
+
+            if skip_spacy_download:
+                if not fallback_path.exists():
+                    fallback_path.parent.mkdir(parents=True, exist_ok=True)
+                    spacy.blank(language).to_disk(fallback_path)
+
+                LOGGER.warning(
+                    "Skipping spaCy model download for '%s' (LLM_GUARD_SKIP_SPACY_DOWNLOAD=1). "
+                    "Using blank fallback at '%s'.",
+                    model_name,
+                    fallback_path,
+                )
+                model_name = str(fallback_path)
+                models.append({"lang_code": language, "model_name": model_name})
+                continue
+
+            try:
+                # Use small spaCy model for better linguistic signals when available.
+                download(model_name)
+            except Exception as exc:
+                # In restricted networks, model downloads can fail. Fallback to a local blank
+                # pipeline so initialization does not fail hard for the whole scanner stack.
+                if not fallback_path.exists():
+                    fallback_path.parent.mkdir(parents=True, exist_ok=True)
+                    spacy.blank(language).to_disk(fallback_path)
+
+                LOGGER.warning(
+                    "Failed to download spaCy model '%s'. Using blank fallback at '%s'. Error: %s",
+                    model_name,
+                    fallback_path,
+                    exc,
+                )
+                model_name = str(fallback_path)
+
+        models.append({"lang_code": language, "model_name": model_name})
 
     configuration = {"nlp_engine_name": "spacy", "models": models}
 

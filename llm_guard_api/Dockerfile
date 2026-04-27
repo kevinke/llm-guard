@@ -27,15 +27,33 @@ ENV PYTHONDONTWRITEBYTECODE 1
 # Set up a working directory
 WORKDIR $HOME/app
 
+# Build-time toggles for dependency behavior in constrained networks.
+ARG TORCH_CPU_VERSION=2.11.0+cpu
+ARG INSTALL_SPACY_MODELS=0
+
 # Copy pyproject.toml and other necessary files for installation
 COPY --chown=user:user pyproject.toml ./
 COPY --chown=user:user app ./app
 
 # Install the project's dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir ".[cpu]"
+RUN printf "torch==%s\n" "$TORCH_CPU_VERSION" > /tmp/constraints.txt && \
+        pip install --no-cache-dir --upgrade pip && \
+        pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        --extra-index-url https://pypi.org/simple \
+        "torch==$TORCH_CPU_VERSION" && \
+        pip install --no-cache-dir \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        --constraint /tmp/constraints.txt \
+        ".[cpu]" && \
+        rm -f /tmp/constraints.txt
 
-RUN python -m spacy download en_core_web_sm
+RUN if [ "$INSTALL_SPACY_MODELS" = "1" ]; then \
+            python -m spacy download en_core_web_sm || true; \
+            python -m spacy download zh_core_web_sm || true; \
+        else \
+            echo "Skipping spaCy model downloads at build time"; \
+        fi
 
 COPY --chown=user:user ./config/scanners.yml ./config/scanners.yml
 COPY --chown=user:user entrypoint.sh ./entrypoint.sh
@@ -43,6 +61,7 @@ COPY --chown=user:user entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 ENV PYTHONPATH=$HOME/app
+ENV LLM_GUARD_SKIP_SPACY_DOWNLOAD=1
 
 EXPOSE 8000
 
