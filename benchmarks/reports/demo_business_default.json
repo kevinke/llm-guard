@@ -1,0 +1,312 @@
+{
+  "machine": {
+    "hostname": "DESKTOP-KK-WJ15X",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python_version": "3.12.3",
+    "cpu_count_logical": 16,
+    "total_memory_mb": 11852.19,
+    "torch_version": "2.11.0+cu130",
+    "cuda_available": false,
+    "cuda_device": null
+  },
+  "configuration": {
+    "type": "input",
+    "concurrency": [
+      1,
+      2,
+      5
+    ],
+    "iterations_per_concurrency": 1,
+    "warmup_requests": 0,
+    "sample_interval_ms": 50.0,
+    "thread_settings": {
+      "torch_num_threads": null,
+      "torch_num_interop_threads": null,
+      "omp_num_threads": null,
+      "mkl_num_threads": null
+    }
+  },
+  "load": {
+    "scanner_count": 7,
+    "scanners": [
+      "Anonymize",
+      "PromptInjection",
+      "Toxicity",
+      "BanTopics",
+      "Secrets",
+      "TokenLimit",
+      "Regex"
+    ],
+    "payload_size_chars": 161,
+    "use_onnx": false,
+    "load_time_ms": 5881.38,
+    "rss_before_load_mb": 678.71,
+    "rss_after_load_mb": 1486.38,
+    "rss_delta_after_load_mb": 807.67
+  },
+  "cold_request": {
+    "latency_ms": 1278.67,
+    "scanner_results": [
+      {
+        "scanner": "Anonymize",
+        "is_valid": false,
+        "risk_score": 1.0,
+        "latency_ms": 299.53
+      },
+      {
+        "scanner": "PromptInjection",
+        "is_valid": true,
+        "risk_score": -1.0,
+        "latency_ms": 205.19
+      },
+      {
+        "scanner": "Toxicity",
+        "is_valid": true,
+        "risk_score": -1.0,
+        "latency_ms": 285.81
+      },
+      {
+        "scanner": "BanTopics",
+        "is_valid": true,
+        "risk_score": -0.3,
+        "latency_ms": 432.11
+      },
+      {
+        "scanner": "Secrets",
+        "is_valid": true,
+        "risk_score": -1.0,
+        "latency_ms": 54.52
+      },
+      {
+        "scanner": "TokenLimit",
+        "is_valid": false,
+        "risk_score": 1.0,
+        "latency_ms": 1.38
+      },
+      {
+        "scanner": "Regex",
+        "is_valid": true,
+        "risk_score": -1.0,
+        "latency_ms": 0.09
+      }
+    ],
+    "resources": {
+      "samples": 119,
+      "rss_peak_mb": 2553.55,
+      "rss_min_mb": 1486.38,
+      "cpu_percent_avg": 748.72,
+      "cpu_percent_peak": 1060.38,
+      "cpu_percent_avg_estimate": 726.64,
+      "cpu_cores_avg_estimate": 7.27,
+      "cpu_cores_peak": 10.6,
+      "cpu_time_seconds": 9.299,
+      "process_peak_rss_mb": 2556.05
+    }
+  },
+  "steady_state": [
+    {
+      "concurrency": 1,
+      "total_requests": 1,
+      "wall_time_ms": 1080.44,
+      "throughput_rps": 0.93,
+      "latency_avg_ms": 1079.91,
+      "latency_p50_ms": 1079.91,
+      "latency_p90_ms": 1079.91,
+      "latency_p95_ms": 1079.91,
+      "latency_p99_ms": 1079.91,
+      "latency_max_ms": 1079.91,
+      "resources": {
+        "samples": 23,
+        "rss_peak_mb": 2591.96,
+        "rss_min_mb": 2537.3,
+        "cpu_percent_avg": 787.85,
+        "cpu_percent_peak": 832.54,
+        "cpu_percent_avg_estimate": 786.41,
+        "cpu_cores_avg_estimate": 7.86,
+        "cpu_cores_peak": 8.33,
+        "cpu_time_seconds": 8.501,
+        "process_peak_rss_mb": 2591.96
+      },
+      "scanner_results_example": [
+        {
+          "scanner": "Anonymize",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 180.79
+        },
+        {
+          "scanner": "PromptInjection",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 172.41
+        },
+        {
+          "scanner": "Toxicity",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 264.86
+        },
+        {
+          "scanner": "BanTopics",
+          "is_valid": true,
+          "risk_score": -0.3,
+          "latency_ms": 457.12
+        },
+        {
+          "scanner": "Secrets",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 4.24
+        },
+        {
+          "scanner": "TokenLimit",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 0.38
+        },
+        {
+          "scanner": "Regex",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 0.07
+        }
+      ]
+    },
+    {
+      "concurrency": 2,
+      "total_requests": 2,
+      "wall_time_ms": 1893.23,
+      "throughput_rps": 1.06,
+      "latency_avg_ms": 1890.05,
+      "latency_p50_ms": 1890.05,
+      "latency_p90_ms": 1891.37,
+      "latency_p95_ms": 1891.54,
+      "latency_p99_ms": 1891.67,
+      "latency_max_ms": 1891.7,
+      "resources": {
+        "samples": 39,
+        "rss_peak_mb": 2665.44,
+        "rss_min_mb": 2573.93,
+        "cpu_percent_avg": 774.39,
+        "cpu_percent_peak": 1036.83,
+        "cpu_percent_avg_estimate": 778.09,
+        "cpu_cores_avg_estimate": 7.78,
+        "cpu_cores_peak": 10.37,
+        "cpu_time_seconds": 14.738,
+        "process_peak_rss_mb": 2665.44
+      },
+      "scanner_results_example": [
+        {
+          "scanner": "Anonymize",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 388.83
+        },
+        {
+          "scanner": "PromptInjection",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 351.21
+        },
+        {
+          "scanner": "Toxicity",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 440.64
+        },
+        {
+          "scanner": "BanTopics",
+          "is_valid": true,
+          "risk_score": -0.3,
+          "latency_ms": 702.21
+        },
+        {
+          "scanner": "Secrets",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 4.93
+        },
+        {
+          "scanner": "TokenLimit",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 0.43
+        },
+        {
+          "scanner": "Regex",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 0.08
+        }
+      ]
+    },
+    {
+      "concurrency": 5,
+      "total_requests": 5,
+      "wall_time_ms": 3979.83,
+      "throughput_rps": 1.26,
+      "latency_avg_ms": 3949.59,
+      "latency_p50_ms": 3955.81,
+      "latency_p90_ms": 3973.3,
+      "latency_p95_ms": 3974.07,
+      "latency_p99_ms": 3974.69,
+      "latency_max_ms": 3974.84,
+      "resources": {
+        "samples": 78,
+        "rss_peak_mb": 2827.15,
+        "rss_min_mb": 2629.23,
+        "cpu_percent_avg": 1011.63,
+        "cpu_percent_peak": 1377.41,
+        "cpu_percent_avg_estimate": 1006.05,
+        "cpu_cores_avg_estimate": 10.06,
+        "cpu_cores_peak": 13.77,
+        "cpu_time_seconds": 40.1,
+        "process_peak_rss_mb": 2827.15
+      },
+      "scanner_results_example": [
+        {
+          "scanner": "Anonymize",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 888.48
+        },
+        {
+          "scanner": "PromptInjection",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 707.3
+        },
+        {
+          "scanner": "Toxicity",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 785.73
+        },
+        {
+          "scanner": "BanTopics",
+          "is_valid": true,
+          "risk_score": -0.3,
+          "latency_ms": 1510.68
+        },
+        {
+          "scanner": "Secrets",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 10.72
+        },
+        {
+          "scanner": "TokenLimit",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 0.69
+        },
+        {
+          "scanner": "Regex",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 0.19
+        }
+      ]
+    }
+  ]
+}
