@@ -39,6 +39,57 @@ For an in-depth understanding of this feature and its impact on large model hand
 
 Alternatively, quantization can be used to reduce the model size and memory usage.
 
+## Local Resource Benchmarking
+
+If you want to estimate whether a scanner or scanner pipeline can run on a personal PC, use the local benchmark CLI:
+
+```sh
+python benchmarks/resource_benchmark.py input PromptInjection --concurrency 1 2 5
+```
+
+You can benchmark a pipeline by passing multiple scanners in order:
+
+```sh
+python benchmarks/resource_benchmark.py input PromptInjection Toxicity --concurrency 1 2 5
+```
+
+For output scanners:
+
+```sh
+python benchmarks/resource_benchmark.py output Sensitive --concurrency 1 2 5
+```
+
+The report includes:
+
+- model load time and RSS delta after loading scanners
+- cold request latency
+- steady-state latency percentiles under each concurrency level
+- throughput in requests per second
+- sampled process RSS and CPU usage during the run
+
+You can also export the same run as JSON, Markdown, or CSV:
+
+```sh
+python benchmarks/resource_benchmark.py input PromptInjection \
+	--json-output benchmarks/reports/prompt_injection.json \
+	--markdown-output benchmarks/reports/prompt_injection.md \
+	--csv-output benchmarks/reports/prompt_injection.csv
+```
+
+If you want to cap CPU usage on a personal PC, you can limit the runtime threads used by PyTorch and BLAS:
+
+```sh
+python benchmarks/resource_benchmark.py input Anonymize PromptInjection Toxicity \
+	--torch-num-threads 4 \
+	--torch-num-interop-threads 1 \
+	--omp-num-threads 4 \
+	--mkl-num-threads 4
+```
+
+The report will include the thread settings so you can compare latency and CPU usage across runs.
+
+If you want to benchmark your own traffic shape instead of the bundled examples, pass `--prompt-file` and `--output-file`.
+
 ## Use smaller models
 
 For certain scanners, smaller model variants are available e.g. distilbert, bert-small, bert-tiny versions.
