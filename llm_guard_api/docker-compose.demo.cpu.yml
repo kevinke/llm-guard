@@ -1,8 +1,8 @@
 services:
   llm_guard_api_demo:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: llm_guard_api/Dockerfile
       network: host
       args:
         HTTP_PROXY: ${HTTP_PROXY:-}

@@ -32,8 +32,12 @@ ARG TORCH_CPU_VERSION=2.4.0+cpu
 ARG INSTALL_SPACY_MODELS=0
 
 # Copy pyproject.toml and other necessary files for installation
-COPY --chown=user:user pyproject.toml ./
-COPY --chown=user:user app ./app
+COPY --chown=user:user llm_guard_api/pyproject.toml ./pyproject.toml
+COPY --chown=user:user llm_guard_api/app ./app
+COPY --chown=user:user pyproject.toml /tmp/llm_guard_src/pyproject.toml
+COPY --chown=user:user README.md /tmp/llm_guard_src/README.md
+COPY --chown=user:user LICENSE /tmp/llm_guard_src/LICENSE
+COPY --chown=user:user llm_guard /tmp/llm_guard_src/llm_guard
 
 # Install the project's dependencies
 RUN printf "torch==%s\n" "$TORCH_CPU_VERSION" > /tmp/constraints.txt && \
@@ -46,6 +50,8 @@ RUN printf "torch==%s\n" "$TORCH_CPU_VERSION" > /tmp/constraints.txt && \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         --constraint /tmp/constraints.txt \
         ".[cpu]" && \
+        pip install --no-cache-dir --force-reinstall --no-deps /tmp/llm_guard_src && \
+        rm -rf /tmp/llm_guard_src && \
         rm -f /tmp/constraints.txt
 
 RUN if [ "$INSTALL_SPACY_MODELS" = "1" ]; then \
@@ -55,8 +61,8 @@ RUN if [ "$INSTALL_SPACY_MODELS" = "1" ]; then \
             echo "Skipping spaCy model downloads at build time"; \
         fi
 
-COPY --chown=user:user ./config/scanners.yml ./config/scanners.yml
-COPY --chown=user:user entrypoint.sh ./entrypoint.sh
+COPY --chown=user:user llm_guard_api/config/scanners.yml ./config/scanners.yml
+COPY --chown=user:user llm_guard_api/entrypoint.sh ./entrypoint.sh
 
 RUN chmod +x ./entrypoint.sh
 
