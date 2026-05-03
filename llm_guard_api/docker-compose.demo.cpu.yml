@@ -10,6 +10,8 @@ services:
         NO_PROXY: ${NO_PROXY:-}
         TORCH_CPU_VERSION: ${TORCH_CPU_VERSION:-2.4.0+cpu}
         INSTALL_SPACY_MODELS: ${INSTALL_SPACY_MODELS:-0}
+        # 安装了 spaCy 模型时自动解除运行时下载拦截；默认保持拦截（离线 demo 场景）
+        SKIP_SPACY_DOWNLOAD: ${SKIP_SPACY_DOWNLOAD:-1}
     image: llm-guard-api:demo-cpu
     ports:
       - "8000:8000"

@@ -30,6 +30,9 @@ WORKDIR $HOME/app
 # Build-time toggles for dependency behavior in constrained networks.
 ARG TORCH_CPU_VERSION=2.4.0+cpu
 ARG INSTALL_SPACY_MODELS=0
+# When INSTALL_SPACY_MODELS=1, spaCy models are baked into the image and the
+# runtime download guard should be lifted. Default keeps the guard on (=1).
+ARG SKIP_SPACY_DOWNLOAD=1
 
 # Copy pyproject.toml and other necessary files for installation
 COPY --chown=user:user llm_guard_api/pyproject.toml ./pyproject.toml
@@ -67,7 +70,7 @@ COPY --chown=user:user llm_guard_api/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 ENV PYTHONPATH=$HOME/app
-ENV LLM_GUARD_SKIP_SPACY_DOWNLOAD=1
+ENV LLM_GUARD_SKIP_SPACY_DOWNLOAD=$SKIP_SPACY_DOWNLOAD
 
 EXPOSE 8000
 
