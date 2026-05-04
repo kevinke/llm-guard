@@ -1,0 +1,212 @@
+{
+  "machine": {
+    "hostname": "DESKTOP-KK-WJ15X",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python_version": "3.12.3",
+    "cpu_count_logical": 16,
+    "total_memory_mb": 11852.19,
+    "torch_version": "2.11.0+cu130",
+    "cuda_available": false,
+    "cuda_device": null
+  },
+  "configuration": {
+    "type": "input",
+    "concurrency": [
+      1,
+      2,
+      5
+    ],
+    "iterations_per_concurrency": 5,
+    "warmup_requests": 2,
+    "sample_interval_ms": 50.0,
+    "thread_settings": {
+      "torch_num_threads": null,
+      "torch_num_interop_threads": null,
+      "omp_num_threads": null,
+      "mkl_num_threads": null
+    }
+  },
+  "load": {
+    "scanner_count": 3,
+    "scanners": [
+      "Anonymize",
+      "PromptInjection",
+      "TokenLimit"
+    ],
+    "payload_size_chars": 317,
+    "use_onnx": false,
+    "load_time_ms": 5480.8,
+    "rss_before_load_mb": 676.93,
+    "rss_after_load_mb": 988.27,
+    "rss_delta_after_load_mb": 311.34
+  },
+  "cold_request": {
+    "latency_ms": 1423.66,
+    "scanner_results": [
+      {
+        "scanner": "Anonymize",
+        "is_valid": false,
+        "risk_score": 1.0,
+        "latency_ms": 876.83
+      },
+      {
+        "scanner": "PromptInjection",
+        "is_valid": true,
+        "risk_score": -1.0,
+        "latency_ms": 545.91
+      },
+      {
+        "scanner": "TokenLimit",
+        "is_valid": false,
+        "risk_score": 1.0,
+        "latency_ms": 0.92
+      }
+    ],
+    "resources": {
+      "samples": 118,
+      "rss_peak_mb": 1692.52,
+      "rss_min_mb": 988.27,
+      "cpu_percent_avg": 378.81,
+      "cpu_percent_peak": 846.78,
+      "cpu_percent_avg_estimate": 343.31,
+      "cpu_cores_avg_estimate": 3.43,
+      "cpu_cores_peak": 8.47,
+      "cpu_time_seconds": 4.89,
+      "process_peak_rss_mb": 1696.39
+    }
+  },
+  "steady_state": [
+    {
+      "concurrency": 1,
+      "total_requests": 5,
+      "wall_time_ms": 1709.53,
+      "throughput_rps": 2.92,
+      "latency_avg_ms": 341.73,
+      "latency_p50_ms": 343.17,
+      "latency_p90_ms": 347.48,
+      "latency_p95_ms": 348.77,
+      "latency_p99_ms": 349.8,
+      "latency_max_ms": 350.06,
+      "resources": {
+        "samples": 34,
+        "rss_peak_mb": 1729.49,
+        "rss_min_mb": 1692.37,
+        "cpu_percent_avg": 696.5,
+        "cpu_percent_peak": 774.84,
+        "cpu_percent_avg_estimate": 695.69,
+        "cpu_cores_avg_estimate": 6.96,
+        "cpu_cores_peak": 7.75,
+        "cpu_time_seconds": 11.899,
+        "process_peak_rss_mb": 1730.57
+      },
+      "scanner_results_example": [
+        {
+          "scanner": "Anonymize",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 173.23
+        },
+        {
+          "scanner": "PromptInjection",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 176.45
+        },
+        {
+          "scanner": "TokenLimit",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 0.37
+        }
+      ]
+    },
+    {
+      "concurrency": 2,
+      "total_requests": 10,
+      "wall_time_ms": 3579.28,
+      "throughput_rps": 2.79,
+      "latency_avg_ms": 715.62,
+      "latency_p50_ms": 715.5,
+      "latency_p90_ms": 721.87,
+      "latency_p95_ms": 722.37,
+      "latency_p99_ms": 722.76,
+      "latency_max_ms": 722.86,
+      "resources": {
+        "samples": 71,
+        "rss_peak_mb": 1773.59,
+        "rss_min_mb": 1712.21,
+        "cpu_percent_avg": 609.76,
+        "cpu_percent_peak": 732.91,
+        "cpu_percent_avg_estimate": 609.19,
+        "cpu_cores_avg_estimate": 6.09,
+        "cpu_cores_peak": 7.33,
+        "cpu_time_seconds": 21.809,
+        "process_peak_rss_mb": 1773.59
+      },
+      "scanner_results_example": [
+        {
+          "scanner": "Anonymize",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 366.2
+        },
+        {
+          "scanner": "PromptInjection",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 346.84
+        },
+        {
+          "scanner": "TokenLimit",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 0.58
+        }
+      ]
+    },
+    {
+      "concurrency": 5,
+      "total_requests": 25,
+      "wall_time_ms": 7610.45,
+      "throughput_rps": 3.28,
+      "latency_avg_ms": 1502.51,
+      "latency_p50_ms": 1454.0,
+      "latency_p90_ms": 1716.07,
+      "latency_p95_ms": 1733.64,
+      "latency_p99_ms": 1739.9,
+      "latency_max_ms": 1741.64,
+      "resources": {
+        "samples": 144,
+        "rss_peak_mb": 1890.21,
+        "rss_min_mb": 1739.14,
+        "cpu_percent_avg": 713.94,
+        "cpu_percent_peak": 939.06,
+        "cpu_percent_avg_estimate": 710.11,
+        "cpu_cores_avg_estimate": 7.1,
+        "cpu_cores_peak": 9.39,
+        "cpu_time_seconds": 54.083,
+        "process_peak_rss_mb": 1891.08
+      },
+      "scanner_results_example": [
+        {
+          "scanner": "Anonymize",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 779.7
+        },
+        {
+          "scanner": "PromptInjection",
+          "is_valid": true,
+          "risk_score": -1.0,
+          "latency_ms": 787.84
+        },
+        {
+          "scanner": "TokenLimit",
+          "is_valid": false,
+          "risk_score": 1.0,
+          "latency_ms": 0.67
+        }
+      ]
+    }
+  ]
+}

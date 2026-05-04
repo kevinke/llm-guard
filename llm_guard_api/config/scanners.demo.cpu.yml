@@ -1,0 +1,49 @@
+app:
+  name: ${APP_NAME:LLM Guard API Demo}
+  log_level: ${LOG_LEVEL:INFO}
+  log_json: ${LOG_JSON:true}
+  scan_fail_fast: ${SCAN_FAIL_FAST:true}
+  scan_prompt_timeout: ${SCAN_PROMPT_TIMEOUT:30}
+  scan_output_timeout: ${SCAN_OUTPUT_TIMEOUT:30}
+  lazy_load: ${LAZY_LOAD:true}
+
+rate_limit:
+  enabled: ${RATE_LIMIT_ENABLED:false}
+  limit: ${RATE_LIMIT_LIMIT:100/minute}
+
+auth:
+  type: http_bearer
+  token: ${AUTH_TOKEN:demo-token}
+
+tracing:
+  exporter: ${TRACING_EXPORTER:console}
+  endpoint: ${TRACING_OTEL_ENDPOINT:}
+
+metrics:
+  exporter: ${METRICS_TYPE:prometheus}
+  endpoint: ${METRICS_ENDPOINT:}
+
+# Minimal demo set for PII + Prompt Injection.
+input_scanners:
+  - type: Anonymize
+    params:
+      threshold: 0.75
+      use_faker: false
+      language: zh
+      model_path: /models/anonymize_ai4privacy_v2/onnx
+      model_onnx_file_name: model.onnx
+  - type: PromptInjection
+    params:
+      threshold: 0.92
+      match_type: truncate_head_tail
+      model_path: /models/prompt_injection_v2/onnx
+      model_onnx_file_name: model.onnx
+  - type: TokenLimit
+    params:
+      limit: 2048
+      encoding_name: cl100k_base
+
+output_scanners:
+  - type: Deanonymize
+    params:
+      matching_strategy: exact
