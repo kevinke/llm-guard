@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 APP_WORKERS=${APP_WORKERS:-1}
 CONFIG_FILE=${CONFIG_FILE:-./config/scanners.yml}

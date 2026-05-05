@@ -8,7 +8,13 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple}
+        PIP_EXTRA_INDEX_URL: "${PIP_EXTRA_INDEX_URL:-https://mirrors.ustc.edu.cn/pypi/simple https://pypi.org/simple}"
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+        PIP_DEFAULT_TIMEOUT: ${PIP_DEFAULT_TIMEOUT:-300}
+        PIP_RETRIES: ${PIP_RETRIES:-10}
         TORCH_CPU_VERSION: ${TORCH_CPU_VERSION:-2.4.0+cpu}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
         INSTALL_SPACY_MODELS: ${INSTALL_SPACY_MODELS:-0}
         # 安装了 spaCy 模型时自动解除运行时下载拦截；默认保持拦截（离线 demo 场景）
         SKIP_SPACY_DOWNLOAD: ${SKIP_SPACY_DOWNLOAD:-1}
