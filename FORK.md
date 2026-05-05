@@ -101,6 +101,17 @@ export NO_PROXY=localhost,127.0.0.1
 
 这些变量会被 `docker-compose.demo.cpu.yml` 的 `build.args` 自动传入镜像构建阶段。
 
+**pip 镜像默认值**：`docker-compose.demo.cpu.yml` 现在默认将 `PIP_INDEX_URL` 设为清华 TUNA，`PIP_EXTRA_INDEX_URL` 设为中科大 USTC 加官方 PyPI 回退，并把 pip 下载超时/重试提升到 `300s/10 次`，用于降低国内网络下构建阶段拉包失败的概率。
+
+如需切换镜像，可在执行 `docker compose` 前覆盖这些变量，例如改用阿里云 PyPI 镜像：
+
+```sh
+export PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+export PIP_EXTRA_INDEX_URL="https://mirrors.ustc.edu.cn/pypi/simple https://pypi.org/simple"
+```
+
+> 说明：当前仓库默认仍通过 `TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu` 安装 CPU 版 PyTorch wheel，因为本次排查中未确认稳定可用的国内 PyTorch wheel 镜像；如你们内网已有缓存或代理，可额外覆盖 `TORCH_INDEX_URL`。
+
 ---
 
 ## CPU Demo 快速启动
@@ -131,6 +142,8 @@ docker compose -f llm_guard_api/docker-compose.demo.cpu.yml up --build
 ```
 
 > **重要**：compose 文件的 `build.context` 指向仓库根目录（`..`），因此必须在根目录执行 `docker compose`，否则构建上下文会错误地只包含 `llm_guard_api/` 目录，导致镜像安装的是 PyPI 上的旧版 `llm-guard==0.3.16` 而非本地二开代码。
+
+> **构建网络说明**：若构建日志卡在 `torch==2.4.0+cpu` 下载阶段，优先检查代理与 `TORCH_INDEX_URL` 的可达性；其余 Python 依赖会优先走清华 / 中科大镜像。
 
 服务启动后监听 `http://localhost:8000`，Bearer Token 为 `demo-token`。
 

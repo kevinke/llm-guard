@@ -29,6 +29,12 @@ WORKDIR $HOME/app
 
 # Build-time toggles for dependency behavior in constrained networks.
 ARG TORCH_CPU_VERSION=2.4.0+cpu
+ARG PIP_INDEX_URL=https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+ARG PIP_EXTRA_INDEX_URL="https://mirrors.ustc.edu.cn/pypi/simple https://pypi.org/simple"
+ARG PIP_TRUSTED_HOST=
+ARG PIP_DEFAULT_TIMEOUT=300
+ARG PIP_RETRIES=10
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 ARG INSTALL_SPACY_MODELS=0
 # When INSTALL_SPACY_MODELS=1, spaCy models are baked into the image and the
 # runtime download guard should be lifted. Default keeps the guard on (=1).
@@ -43,14 +49,20 @@ COPY --chown=user:user LICENSE /tmp/llm_guard_src/LICENSE
 COPY --chown=user:user llm_guard /tmp/llm_guard_src/llm_guard
 
 # Install the project's dependencies
-RUN printf "torch==%s\n" "$TORCH_CPU_VERSION" > /tmp/constraints.txt && \
+RUN mkdir -p "$HOME/.config/pip" && \
+    printf '[global]\nindex-url = %s\nextra-index-url = %s\ndefault-timeout = %s\nretries = %s\ndisable-pip-version-check = true\n' \
+    "$PIP_INDEX_URL" "$PIP_EXTRA_INDEX_URL" "$PIP_DEFAULT_TIMEOUT" "$PIP_RETRIES" \
+    > "$HOME/.config/pip/pip.conf" && \
+    if [ -n "$PIP_TRUSTED_HOST" ]; then \
+        printf 'trusted-host = %s\n' "$PIP_TRUSTED_HOST" >> "$HOME/.config/pip/pip.conf"; \
+    fi && \
+    printf "torch==%s\n" "$TORCH_CPU_VERSION" > /tmp/constraints.txt && \
         pip install --no-cache-dir --upgrade pip && \
         pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu \
-        --extra-index-url https://pypi.org/simple \
+    --index-url "$TORCH_INDEX_URL" \
+    --extra-index-url "$PIP_INDEX_URL" \
         "torch==$TORCH_CPU_VERSION" && \
         pip install --no-cache-dir \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
         --constraint /tmp/constraints.txt \
         ".[cpu]" && \
         pip install --no-cache-dir --force-reinstall --no-deps /tmp/llm_guard_src && \
